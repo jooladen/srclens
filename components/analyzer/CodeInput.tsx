@@ -5,10 +5,9 @@ import { useRef } from "react";
 interface CodeInputProps {
   value: string;
   onChange: (code: string) => void;
-  disabled?: boolean;
 }
 
-export function CodeInput({ value, onChange, disabled }: CodeInputProps) {
+export function CodeInput({ value, onChange }: CodeInputProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
@@ -37,7 +36,7 @@ export function CodeInput({ value, onChange, disabled }: CodeInputProps) {
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
+          disabled={false}
           placeholder={`// page.tsx 코드를 여기에 붙여넣거나\n// 파일을 드래그&드롭 하세요\n\n'use client'\n\nimport { useState } from 'react'\n\nexport default function Page() {\n  return <div>Hello World</div>\n}`}
           className="w-full h-full min-h-[300px] p-4 font-mono text-sm bg-gray-950 text-gray-100 border border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-600 disabled:opacity-50"
           spellCheck={false}
@@ -66,7 +65,7 @@ export function CodeInput({ value, onChange, disabled }: CodeInputProps) {
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          disabled={disabled}
+          disabled={false}
           className="px-4 py-2 text-sm border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
         >
           파일 업로드
@@ -75,7 +74,7 @@ export function CodeInput({ value, onChange, disabled }: CodeInputProps) {
           <button
             type="button"
             onClick={() => onChange("")}
-            disabled={disabled}
+            disabled={false}
             className="px-4 py-2 text-sm text-gray-500 hover:text-gray-300 transition-colors"
           >
             지우기
