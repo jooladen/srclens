@@ -180,26 +180,107 @@ function extractTopLevelJSX(code: string): string[] {
 function explainImport(from: string, code: string): string {
   // 정확히 매핑된 경우
   if (IMPORT_MAP[from]) return IMPORT_MAP[from];
-  // 패턴 매칭
-  if (from.startsWith("./") || from.startsWith("../"))
-    return "프로젝트 내 다른 파일에서 가져옴";
-  if (from.startsWith("@/")) return "프로젝트 내 절대 경로 파일에서 가져옴";
+
+  // import type 여부 감지
+  const isTypeOnly = code.trimStart().startsWith("import type");
+
+  // 파일명 추출 (경로의 마지막 세그먼트)
+  const fileName = from.split("/").pop() ?? from;
+  const fileNameLower = fileName.toLowerCase();
+
+  // @/ 또는 ./ 상대경로 — 파일명으로 설명
+  if (from.startsWith("@/") || from.startsWith("./") || from.startsWith("../")) {
+    if (isTypeOnly) return `TypeScript 타입만 가져옴 (런타임에 영향 없음)`;
+
+    // lib/ 경로 — 유틸 함수
+    if (from.includes("/lib/") || from.includes("/utils/") || from.includes("/helpers/")) {
+      if (fileNameLower.includes("parser")) return `'${fileName}' — 코드/텍스트를 분석하는 파서 함수`;
+      if (fileNameLower.includes("extract")) return `'${fileName}' — 데이터를 추출하는 함수`;
+      if (fileNameLower.includes("differ") || fileNameLower.includes("diff")) return `'${fileName}' — 두 값의 차이를 비교하는 함수`;
+      if (fileNameLower.includes("format")) return `'${fileName}' — 데이터를 원하는 형식으로 변환하는 함수`;
+      if (fileNameLower.includes("valid")) return `'${fileName}' — 값의 유효성을 검사하는 함수`;
+      if (fileNameLower.includes("calc") || fileNameLower.includes("calculate")) return `'${fileName}' — 값을 계산하는 함수`;
+      if (fileNameLower.includes("fetch") || fileNameLower.includes("api")) return `'${fileName}' — 서버/API 요청 함수`;
+      if (fileNameLower.includes("auth")) return `'${fileName}' — 인증 관련 유틸 함수`;
+      if (fileNameLower.includes("storage") || fileNameLower.includes("cache")) return `'${fileName}' — 데이터 저장/캐시 유틸 함수`;
+      return `'${fileName}' — 유틸리티/헬퍼 함수 모음`;
+    }
+
+    // hooks/ 경로 — 커스텀 훅
+    if (from.includes("/hooks/")) {
+      return `'${fileName}' — 여러 컴포넌트에서 재사용하는 커스텀 훅`;
+    }
+
+    // store/ 경로 — 전역 상태
+    if (from.includes("/store") || from.includes("/stores/") || fileNameLower.includes("store")) {
+      return `'${fileName}' — 전역 상태 저장소 (여러 컴포넌트가 공유하는 데이터)`;
+    }
+
+    // types/ 경로 — 타입 정의
+    if (from.includes("/types") || fileNameLower.includes("type") || fileNameLower.includes("interface")) {
+      return `'${fileName}' — TypeScript 타입/인터페이스 정의`;
+    }
+
+    // constants/ 경로 — 상수
+    if (from.includes("/constants") || fileNameLower.includes("constant") || fileNameLower.includes("config")) {
+      return `'${fileName}' — 프로젝트 전체에서 사용하는 상수/설정값`;
+    }
+
+    // context/ 경로 — Context
+    if (from.includes("/context") || fileNameLower.includes("context") || fileNameLower.includes("provider")) {
+      return `'${fileName}' — React Context (전역 상태를 컴포넌트 트리에 공유)`;
+    }
+
+    // components/ 경로 — 컴포넌트 이름으로 설명
+    if (from.includes("/components/") || from.includes("/ui/")) {
+      if (fileNameLower.includes("button")) return `'${fileName}' — 클릭 가능한 버튼 컴포넌트`;
+      if (fileNameLower.includes("input")) return `'${fileName}' — 텍스트 입력 컴포넌트`;
+      if (fileNameLower.includes("modal") || fileNameLower.includes("dialog")) return `'${fileName}' — 팝업 모달/다이얼로그 컴포넌트`;
+      if (fileNameLower.includes("toast") || fileNameLower.includes("alert") || fileNameLower.includes("notification")) return `'${fileName}' — 알림 메시지 컴포넌트`;
+      if (fileNameLower.includes("upload") || fileNameLower.includes("dropzone") || fileNameLower.includes("filepicker")) return `'${fileName}' — 파일 업로드 컴포넌트`;
+      if (fileNameLower.includes("table") || fileNameLower.includes("grid") || fileNameLower.includes("datagrid")) return `'${fileName}' — 표/그리드 컴포넌트`;
+      if (fileNameLower.includes("list")) return `'${fileName}' — 목록을 표시하는 컴포넌트`;
+      if (fileNameLower.includes("card")) return `'${fileName}' — 카드 형태의 UI 컴포넌트`;
+      if (fileNameLower.includes("nav") || fileNameLower.includes("menu") || fileNameLower.includes("sidebar")) return `'${fileName}' — 내비게이션/메뉴 컴포넌트`;
+      if (fileNameLower.includes("header")) return `'${fileName}' — 페이지 상단 헤더 컴포넌트`;
+      if (fileNameLower.includes("footer")) return `'${fileName}' — 페이지 하단 푸터 컴포넌트`;
+      if (fileNameLower.includes("layout") || fileNameLower.includes("split") || fileNameLower.includes("panel")) return `'${fileName}' — 화면 배치/레이아웃 컴포넌트`;
+      if (fileNameLower.includes("loading") || fileNameLower.includes("spinner") || fileNameLower.includes("skeleton")) return `'${fileName}' — 로딩 중 표시 컴포넌트`;
+      if (fileNameLower.includes("icon")) return `'${fileName}' — 아이콘 컴포넌트`;
+      if (fileNameLower.includes("chart") || fileNameLower.includes("graph")) return `'${fileName}' — 차트/그래프 컴포넌트`;
+      if (fileNameLower.includes("form")) return `'${fileName}' — 입력 폼 컴포넌트`;
+      if (fileNameLower.includes("image") || fileNameLower.includes("avatar") || fileNameLower.includes("thumbnail")) return `'${fileName}' — 이미지/아바타 컴포넌트`;
+      if (fileNameLower.includes("badge") || fileNameLower.includes("tag") || fileNameLower.includes("chip")) return `'${fileName}' — 배지/태그 컴포넌트`;
+      if (fileNameLower.includes("toggle") || fileNameLower.includes("switch") || fileNameLower.includes("theme")) return `'${fileName}' — 토글/스위치 컴포넌트`;
+      if (fileNameLower.includes("search")) return `'${fileName}' — 검색 UI 컴포넌트`;
+      if (fileNameLower.includes("stat") || fileNameLower.includes("metrics") || fileNameLower.includes("dashboard")) return `'${fileName}' — 통계/지표 표시 컴포넌트`;
+      if (fileNameLower.includes("progress") || fileNameLower.includes("bar")) return `'${fileName}' — 진행률 표시 컴포넌트`;
+      if (fileNameLower.includes("select") || fileNameLower.includes("dropdown")) return `'${fileName}' — 드롭다운 선택 컴포넌트`;
+      if (fileNameLower.includes("text") || fileNameLower.includes("label") || fileNameLower.includes("typo")) return `'${fileName}' — 텍스트/타이포그래피 컴포넌트`;
+      if (fileNameLower.includes("error") || fileNameLower.includes("empty") || fileNameLower.includes("fallback")) return `'${fileName}' — 에러/빈 상태 표시 컴포넌트`;
+      // 일반 컴포넌트
+      return `'${fileName}' — 직접 만든 UI 컴포넌트`;
+    }
+
+    // 기타 내부 파일
+    const folder = from.split("/").slice(-2, -1)[0] ?? "";
+    return folder ? `'${fileName}' — ${folder}/ 폴더의 내부 모듈` : `'${fileName}' — 프로젝트 내부 모듈`;
+  }
+
+  // 외부 패키지 — 이름으로 추론
   if (from.includes("next/")) return "Next.js 내장 기능";
   if (from.includes("react")) return "React 관련 라이브러리";
-  // 가져오는 항목으로 힌트
   const named = code.match(/import\s+\{([^}]+)\}/)?.[1];
-  if (named?.includes("Icon") || from.includes("icon"))
-    return "아이콘 라이브러리";
-  if (from.includes("ui") || from.includes("component"))
-    return "UI 컴포넌트 라이브러리";
-  if (from.includes("util") || from.includes("helper"))
-    return "유틸리티 함수 모음";
-  if (from.includes("type") || from.includes("interface"))
-    return "TypeScript 타입 정의";
-  if (from.includes("store") || from.includes("zustand") || from.includes("redux"))
-    return "전역 상태 관리 스토어";
-  if (from.includes("api") || from.includes("service"))
-    return "API 요청 함수 모음";
+  if (named?.includes("Icon") || from.includes("icon")) return "아이콘 라이브러리";
+  if (from.includes("zustand") || from.includes("redux") || from.includes("jotai") || from.includes("recoil")) return "전역 상태 관리 라이브러리";
+  if (from.includes("axios") || from.includes("swr") || from.includes("react-query") || from.includes("tanstack")) return "서버 데이터 요청/캐싱 라이브러리";
+  if (from.includes("zod") || from.includes("yup") || from.includes("joi")) return "데이터 유효성 검사 라이브러리";
+  if (from.includes("date") || from.includes("dayjs") || from.includes("moment")) return "날짜/시간 처리 라이브러리";
+  if (from.includes("motion") || from.includes("anime") || from.includes("gsap")) return "애니메이션 라이브러리";
+  if (from.includes("socket") || from.includes("ws")) return "실시간 웹소켓 통신 라이브러리";
+  if (from.includes("i18n") || from.includes("intl")) return "다국어(번역) 처리 라이브러리";
+  if (from.includes("prisma") || from.includes("drizzle") || from.includes("mongoose")) return "데이터베이스 ORM 라이브러리";
+  if (from.includes("stripe") || from.includes("payment")) return "결제 처리 라이브러리";
   return `외부 패키지 (${from})`;
 }
 
