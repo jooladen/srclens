@@ -19,3 +19,6 @@ next-env.d.ts
 node_modules
 
 .vercel
+
+# bkit 상태 파일 (로컬 전용)
+.bkit/agent-state.json
