@@ -30,6 +30,7 @@ notify() {
   curl -s \
     -H "Title: $title" \
     -H "Tags: $tags" \
+    -H "Content-Type: text/plain" \
     -d "$msg" \
     "https://ntfy.sh/$NTFY_TOPIC" > /dev/null 2>&1
 }
