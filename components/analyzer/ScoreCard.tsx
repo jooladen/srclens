@@ -40,6 +40,13 @@ export function ScoreCard({ score }: ScoreCardProps) {
       ? "bg-yellow-500"
       : "bg-red-500";
 
+  const levelStyle = {
+    "초급": { bg: "bg-green-900/50", border: "border-green-700", text: "text-green-300", emoji: "🌱" },
+    "중급": { bg: "bg-blue-900/50", border: "border-blue-700", text: "text-blue-300", emoji: "⚡" },
+    "고급": { bg: "bg-purple-900/50", border: "border-purple-700", text: "text-purple-300", emoji: "🔥" },
+  } as const;
+  const ls = levelStyle[score.level];
+
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
       <div className="flex items-center gap-2 mb-4">
@@ -49,9 +56,14 @@ export function ScoreCard({ score }: ScoreCardProps) {
 
       <div className="flex items-center gap-4 mb-4">
         <div className="text-5xl font-black text-white tabular-nums">{displayed}</div>
-        <div>
-          <div className="text-2xl">{score.gradeEmoji}</div>
-          <div className="text-sm font-bold text-gray-300">{score.grade}</div>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xl">{score.gradeEmoji}</span>
+            <span className="text-sm font-bold text-gray-300">{score.grade}</span>
+          </div>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full border ${ls.bg} ${ls.border} ${ls.text}`}>
+            {ls.emoji} {score.level}
+          </span>
         </div>
       </div>
 

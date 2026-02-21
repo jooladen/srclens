@@ -1,4 +1,4 @@
-import type { AnalysisResult, AnalysisSection, AnalysisStats, CodeScore, Suggestion } from "@/types/analysis";
+import type { AnalysisResult, AnalysisSection, AnalysisStats, CodeScore, Suggestion, TreeNode } from "@/types/analysis";
 
 // ─── Import 설명 사전 ─────────────────────────────────────────────
 const IMPORT_MAP: Record<string, string> = {
@@ -369,7 +369,16 @@ function calculateScore(
       ? "보통"
       : "낮음";
 
-  return { score, grade, gradeEmoji, complexity, beginnerFriendly };
+  const complexHooksList = ["useReducer", "useMemo", "useCallback", "useImperativeHandle"];
+  const complexHookCount = hookNames.filter((n) => complexHooksList.includes(n)).length;
+  const level: "초급" | "중급" | "고급" =
+    complexHookCount >= 2 || hooks.length > 5 || imports.length > 10
+      ? "고급"
+      : complexHookCount >= 1 || hooks.length > 2 || imports.length > 5
+      ? "중급"
+      : "초급";
+
+  return { score, grade, gradeEmoji, complexity, beginnerFriendly, level };
 }
 
 // ─── 개선 제안 ──────────────────────────────────────────────────────
@@ -387,6 +396,8 @@ function generateSuggestions(
       title: "'use client' 제거 가능",
       description: "훅을 사용하지 않는다면 서버 컴포넌트로 바꿀 수 있어요. 더 빠른 페이지 로드!",
       level: "tip",
+      beforeCode: `'use client'\n\nexport default function MyComponent() {\n  return <div>내용</div>\n}`,
+      afterCode: `// 'use client' 제거 → 서버 컴포넌트\nexport default function MyComponent() {\n  return <div>내용</div>\n}`,
     });
   }
 
@@ -397,6 +408,8 @@ function generateSuggestions(
       title: "useState가 많아요",
       description: `useState가 ${useStateCount}개네요. useReducer로 묶으면 코드가 훨씬 깔끔해져요.`,
       level: "tip",
+      beforeCode: `const [name, setName] = useState('')\nconst [age, setAge] = useState(0)\nconst [email, setEmail] = useState('')`,
+      afterCode: `const [form, dispatch] = useReducer(formReducer, {\n  name: '',\n  age: 0,\n  email: ''\n})`,
     });
   }
 
@@ -406,6 +419,8 @@ function generateSuggestions(
       title: "데이터 요청 최적화",
       description: "useEffect + fetch 조합은 SWR이나 React Query로 바꾸면 3줄로 줄어들고, 캐싱도 자동이에요!",
       level: "tip",
+      beforeCode: `useEffect(() => {\n  fetch('/api/data')\n    .then(res => res.json())\n    .then(data => setData(data))\n}, [])`,
+      afterCode: `import useSWR from 'swr'\n\n// 컴포넌트 안에서\nconst { data } = useSWR('/api/data', fetcher)`,
     });
   }
 
@@ -415,6 +430,8 @@ function generateSuggestions(
       title: "함수 최적화 팁",
       description: "자식 컴포넌트에 함수를 props로 넘긴다면 useCallback으로 감싸보세요.",
       level: "info",
+      beforeCode: `// 렌더링마다 새 함수가 생성됨\nconst handleClick = () => {\n  doSomething()\n}\n\n<Child onClick={handleClick} />`,
+      afterCode: `// 의존값이 바뀔 때만 새 함수 생성\nconst handleClick = useCallback(() => {\n  doSomething()\n}, [deps])\n\n<Child onClick={handleClick} />`,
     });
   }
 
@@ -424,6 +441,8 @@ function generateSuggestions(
       title: "useEffect 정리(cleanup) 확인",
       description: "이벤트 리스너나 타이머를 쓴다면 return () => {} 로 정리해줘야 메모리 누수가 없어요.",
       level: "warning",
+      beforeCode: `useEffect(() => {\n  window.addEventListener('resize', handler)\n}, [])`,
+      afterCode: `useEffect(() => {\n  window.addEventListener('resize', handler)\n  return () => {\n    // 컴포넌트가 사라질 때 정리\n    window.removeEventListener('resize', handler)\n  }\n}, [])`,
     });
   }
 
@@ -437,6 +456,90 @@ function generateSuggestions(
   }
 
   return suggestions;
+}
+
+// ─── 컴포넌트 트리 파서 ───────────────────────────────────────────
+function extractReturnJSX(code: string): string {
+  const returnMatch = code.match(/\breturn\s*\(/);
+  if (!returnMatch || returnMatch.index === undefined) {
+    const simpleMatch = code.match(/\breturn\s+(<)/);
+    if (!simpleMatch || simpleMatch.index === undefined) return "";
+    return code.slice(simpleMatch.index + simpleMatch[0].length - 1);
+  }
+  const start = returnMatch.index + returnMatch[0].length;
+  let depth = 1;
+  let i = start;
+  while (i < code.length && depth > 0) {
+    if (code[i] === "(") depth++;
+    else if (code[i] === ")") depth--;
+    i++;
+  }
+  return code.slice(start, i - 1);
+}
+
+function buildJSXTree(code: string, rootName: string): TreeNode {
+  const root: TreeNode = { tag: rootName, isComponent: true, children: [] };
+  const jsx = extractReturnJSX(code);
+  if (!jsx) return root;
+
+  const stack: TreeNode[] = [root];
+  let pos = 0;
+  const MAX_DEPTH = 4;
+  const MAX_CHILDREN = 8;
+
+  while (pos < jsx.length) {
+    const ltPos = jsx.indexOf("<", pos);
+    if (ltPos === -1) break;
+
+    if (jsx[ltPos + 1] === "/") {
+      // Closing tag </Tag> or </>
+      const gtPos = jsx.indexOf(">", ltPos);
+      if (gtPos === -1) break;
+      if (jsx[ltPos + 2] === ">") {
+        if (stack.length > 1 && stack[stack.length - 1].tag === "Fragment") stack.pop();
+      } else {
+        const tagName = jsx.slice(ltPos + 2, gtPos).trim().split(/\s/)[0];
+        if (stack.length > 1 && stack[stack.length - 1].tag === tagName) stack.pop();
+      }
+      pos = gtPos + 1;
+    } else if (jsx[ltPos + 1] === ">") {
+      // Fragment <>
+      const fragNode: TreeNode = { tag: "Fragment", isComponent: false, children: [] };
+      if (stack.length <= MAX_DEPTH) {
+        const parent = stack[stack.length - 1];
+        if (parent.children.length < MAX_CHILDREN) parent.children.push(fragNode);
+        stack.push(fragNode);
+      }
+      pos = ltPos + 2;
+    } else {
+      // Opening or self-closing tag — find > while tracking {}
+      let depth = 0;
+      let gtPos = -1;
+      for (let i = ltPos + 1; i < jsx.length; i++) {
+        if (jsx[i] === "{") depth++;
+        else if (jsx[i] === "}") depth--;
+        else if (jsx[i] === ">" && depth === 0) { gtPos = i; break; }
+      }
+      if (gtPos === -1) break;
+
+      const tagContent = jsx.slice(ltPos + 1, gtPos);
+      const tagNameMatch = tagContent.match(/^([A-Za-z][A-Za-z0-9.]*)/);
+      if (!tagNameMatch) { pos = gtPos + 1; continue; }
+
+      const tagName = tagNameMatch[1];
+      const isSelfClosing = jsx[gtPos - 1] === "/";
+      const newNode: TreeNode = { tag: tagName, isComponent: /^[A-Z]/.test(tagName), children: [] };
+
+      if (stack.length <= MAX_DEPTH) {
+        const parent = stack[stack.length - 1];
+        if (parent.children.length < MAX_CHILDREN) parent.children.push(newNode);
+        if (!isSelfClosing) stack.push(newNode);
+      }
+      pos = gtPos + 1;
+    }
+  }
+
+  return root;
 }
 
 // ─── 메인 분석 함수 ────────────────────────────────────────────────
@@ -555,5 +658,6 @@ export function analyzeCode(code: string): AnalysisResult {
     stats,
     score: calculateScore(rawHooks, rawImports, isClient),
     suggestions: generateSuggestions(rawHooks, isClient, code),
+    componentTree: buildJSXTree(code, componentName),
   };
 }

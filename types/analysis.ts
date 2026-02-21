@@ -26,6 +26,7 @@ export interface CodeScore {
   gradeEmoji: string;
   complexity: "낮음" | "보통" | "높음";
   beginnerFriendly: "높음" | "보통" | "낮음";
+  level: "초급" | "중급" | "고급";
 }
 
 export interface Suggestion {
@@ -33,6 +34,8 @@ export interface Suggestion {
   title: string;
   description: string;
   level: "tip" | "warning" | "info";
+  beforeCode?: string;
+  afterCode?: string;
 }
 
 export interface HistoryItem {
@@ -49,6 +52,7 @@ export interface AnalysisResult {
   stats: AnalysisStats;
   score: CodeScore;
   suggestions: Suggestion[];
+  componentTree: TreeNode;
 }
 
 export interface AnalyzeRequest {
@@ -58,6 +62,12 @@ export interface AnalyzeRequest {
 export interface AnalyzeErrorResponse {
   error: string;
   code: "INVALID_CODE" | "TOO_LARGE" | "API_ERROR";
+}
+
+export interface TreeNode {
+  tag: string;
+  isComponent: boolean;
+  children: TreeNode[];
 }
 
 export type ParsedCode = {

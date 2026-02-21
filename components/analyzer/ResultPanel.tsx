@@ -6,6 +6,7 @@ import { SummaryCard } from "./SummaryCard";
 import { SectionCard } from "./SectionCard";
 import { ScoreCard } from "./ScoreCard";
 import { SuggestionsCard } from "./SuggestionsCard";
+import { ComponentTree } from "./ComponentTree";
 
 interface ResultPanelProps {
   result: AnalysisResult | null;
@@ -86,6 +87,7 @@ export function ResultPanel({ result, loading, error }: ResultPanelProps) {
       <ScoreCard score={result.score} />
       <SummaryCard summary={result.summary} stats={result.stats} />
       <SuggestionsCard suggestions={result.suggestions} />
+      <ComponentTree root={result.componentTree} />
       {result.sections.map((section, i) => (
         <SectionCard key={i} section={section} />
       ))}
