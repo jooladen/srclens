@@ -65,10 +65,10 @@ if [ "$SKIP_GIT" = false ]; then
 
   if git push; then
     echo "  ✅ GitHub push 완료!"
-    notify "✅ Push 완료!" "[$COMMIT_MSG] GitHub에 올라갔어요!" "white_check_mark"
+    notify "srclens: Push done!" "$COMMIT_MSG" "white_check_mark"
   else
     echo "  ❌ Push 실패!"
-    notify "❌ Push 실패!" "에러 발생 - 터미널 확인하세요" "x"
+    notify "srclens: Push failed!" "Check terminal" "x"
     exit 1
   fi
 else
@@ -89,7 +89,7 @@ if [ ! -d ".vercel" ]; then
   echo ""
   echo "    vercel link"
   echo ""
-  notify "⚠️ Vercel 연결 필요!" "vercel link 명령어를 먼저 실행하세요" "warning"
+  notify "srclens: Vercel not linked!" "Run: vercel link" "warning"
   exit 1
 fi
 
@@ -109,9 +109,9 @@ if [ $VERCEL_STATUS -eq 0 ]; then
   echo "  🎉 배포 완료!"
   if [ -n "$DEPLOY_URL" ]; then
     echo "  🌐 주소: $DEPLOY_URL"
-    notify "🎉 배포 완료!" "srclens 배포됨! 주소: $DEPLOY_URL" "rocket"
+    notify "srclens: Deploy done!" "$DEPLOY_URL" "rocket"
   else
-    notify "🎉 배포 완료!" "srclens가 Vercel에 배포됐어요!" "rocket"
+    notify "srclens: Deploy done!" "Check Vercel dashboard" "rocket"
   fi
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 else
@@ -122,7 +122,7 @@ else
   echo "  에러 내용:"
   cat "$VERCEL_LOG" | sed 's/^/    /'
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  notify "❌ 배포 실패!" "Vercel 배포 에러 - 터미널 확인하세요" "x"
+  notify "srclens: Deploy failed!" "Check terminal for errors" "x"
 fi
 
 rm -f "$VERCEL_LOG"
