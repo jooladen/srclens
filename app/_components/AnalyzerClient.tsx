@@ -5,6 +5,7 @@ import { CodeInput } from "@/components/analyzer/CodeInput";
 import { AnalyzeButton } from "@/components/analyzer/AnalyzeButton";
 import { ResultPanel } from "@/components/analyzer/ResultPanel";
 import { ExampleButtons } from "@/components/analyzer/ExampleButtons";
+import { LearnMode } from "@/components/analyzer/LearnMode";
 import { analyzeCode } from "@/lib/analyzer";
 import type { AnalysisResult, HistoryItem } from "@/types/analysis";
 
@@ -48,6 +49,7 @@ export function AnalyzerClient() {
   const [showHistory, setShowHistory] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [liveMode, setLiveMode] = useState(true);
+  const [learnMode, setLearnMode] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // URL에서 코드 불러오기
@@ -154,10 +156,14 @@ export function AnalyzerClient() {
           <ExampleButtons onSelect={(c) => { setCode(c); setResult(null); }} />
 
           <div className="flex-1 overflow-hidden">
-            <CodeInput value={code} onChange={setCode} />
+            {learnMode && code ? (
+              <LearnMode code={code} />
+            ) : (
+              <CodeInput value={code} onChange={setCode} />
+            )}
           </div>
 
-          {/* 실시간 토글 + 버튼 */}
+          {/* 실시간 토글 + 학습 모드 + 버튼 */}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -170,6 +176,20 @@ export function AnalyzerClient() {
             >
               <span className={`w-1.5 h-1.5 rounded-full ${liveMode ? "bg-green-400 animate-pulse" : "bg-gray-600"}`} />
               {liveMode ? "실시간 ON" : "실시간 OFF"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLearnMode(!learnMode)}
+              disabled={!code.trim()}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                learnMode
+                  ? "bg-yellow-900/50 border-yellow-700 text-yellow-300"
+                  : "bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <span>📖</span>
+              학습 모드
             </button>
 
             {!liveMode && (

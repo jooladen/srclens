@@ -16,6 +16,8 @@ React/Next.js 코드를 붙여넣으면 **초보자 언어로 설명**해주는 
 - v0.3.0: 실시간 분석(디바운스), 점수 카운트업 애니메이션, 공유 링크
 - v0.4.0: 레벨 배지(초급/중급/고급), Before/After 코드 개선 예시, 컴포넌트 트리 시각화
 - v0.4.1: 컴포넌트 트리 개선 - 접기/펼치기, 스태거 애니메이션, 호버 글로우, 통계 Footer, Empty State
+- v0.4.2: setup.sh 추가 - 새 프로젝트 초기 셋업 자동화 (Next.js + deploy.sh + git + Vercel)
+- v0.5.0: 학습 모드 - 코드 줄 클릭 시 초보자 언어 설명 인라인 표시
 
 ## 배포 방법
 ```bash
@@ -43,6 +45,8 @@ bash deploy.sh "커밋 메시지"
 | `components/analyzer/ExampleButtons.tsx` | 예제 코드 버튼 |
 | `components/analyzer/ResultPanel.tsx` | 결과 패널 + 복사 버튼 |
 | `deploy.sh` | 자동 배포 스크립트 |
+| `setup.sh` | 새 프로젝트 초기 셋업 자동화 |
+| `components/analyzer/LearnMode.tsx` | 학습 모드 - 줄별 클릭 설명 UI |
 
 ## gitignore 제외 목록
 - `node_modules/`, `.next/`, `.env*`
@@ -64,6 +68,7 @@ notes/
 - 새 기능 추가 시 `types/analysis.ts` 타입 먼저 업데이트
 - 배포 전 `npm run build`로 빌드 확인
 - 버전 올릴 때 `package.json` version 수동 업데이트
+- 새 파일/기능 추가 시 CLAUDE.md의 버전 히스토리·주요 파일 테이블·기능 로드맵 자동 업데이트
 
 ## 기능 로드맵 (물개박수 목록)
 
@@ -81,13 +86,16 @@ notes/
 - [x] **컴포넌트 트리 시각화** - 의존성 구조를 그림으로 표시
 - [x] **레벨 배지** - "초급/중급/고급" 코드 레벨 판정
 - [x] **트리 WOW 개선** - 접기/펼치기(▶/▼), 스태거 등장 애니메이션, 호버 글로우, 통계(총 노드수·컴포넌트수·최대깊이), Empty State
+- [x] **setup.sh** - 새 프로젝트 빈 폴더에서 `bash setup.sh` 한 방에 셋업 → 프로젝트명/ntfy/GitHub/Vercel 자동 구성
 
-### 🔜 v0.5 후보
+### ✅ v0.5 완료
+- [x] **학습 모드** - 코드 줄 클릭하면 초보자 언어로 설명 인라인 표시 (explainLine + LearnMode 컴포넌트)
+
+### 🔜 v0.6 후보
 - [ ] **PWA 설치 지원** - "앱으로 설치하기" 버튼 → 폰에 앱처럼 설치
 - [ ] **분석 결과 이미지 저장** - 캡처해서 공유 (og-image 스타일)
-- [ ] **학습 모드** - 코드 줄 하나씩 클릭하면 그 줄 설명
 
 ### 🔧 기술 부채
 - [ ] deploy.sh URL 추출 정리 (Aliased: 텍스트 제거)
 - [ ] deploy.sh minor/patch/major 버전 옵션 추가
-- [ ] setup.sh 생성 (새 프로젝트 초기 셋업 자동화)
+- [x] setup.sh 생성 (새 프로젝트 초기 셋업 자동화)

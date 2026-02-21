@@ -542,6 +542,109 @@ function buildJSXTree(code: string, rootName: string): TreeNode {
   return root;
 }
 
+// ─── 줄별 설명 (학습 모드) ─────────────────────────────────────────
+export function explainLine(line: string): string {
+  const t = line.trim();
+
+  if (!t) return "";
+
+  // 주석
+  if (t.startsWith("//") || t.startsWith("/*") || t.startsWith("*") || t.startsWith("*/")) {
+    return "주석 — 실행되지 않는 메모입니다. 코드에 설명을 남길 때 사용합니다.";
+  }
+
+  // use client / use server
+  if (t === "'use client'" || t === '"use client"') {
+    return "이 파일이 브라우저(클라이언트)에서 실행됨을 선언합니다. useState, onClick 같은 기능을 쓰려면 필수입니다.";
+  }
+  if (t === "'use server'" || t === '"use server"') {
+    return "이 파일이 서버에서만 실행됨을 선언합니다.";
+  }
+
+  // import
+  if (t.startsWith("import ")) {
+    const m = t.match(/from\s+['"](.+)['"]/);
+    if (m) return `불러오기(import) — ${explainImport(m[1], t)}`;
+    return "다른 파일이나 라이브러리에서 코드를 불러옵니다.";
+  }
+
+  // export default function / export function
+  const exportFnMatch = t.match(/^export\s+(?:default\s+)?(?:async\s+)?function\s+(\w+)/);
+  if (exportFnMatch) {
+    return `'${exportFnMatch[1]}' 컴포넌트(함수)를 정의하고 외부에서 사용할 수 있게 내보냅니다.`;
+  }
+
+  // 훅 사용
+  const hookMatch = t.match(/\b(use[A-Z]\w*)\s*[(<]/);
+  if (hookMatch) return explainHook(hookMatch[1]);
+
+  // const/let/var 선언
+  const varMatch = t.match(/^(?:const|let|var)\s+/);
+  if (varMatch) {
+    if (t.includes("=>")) return "함수를 변수에 저장합니다. 나중에 이 이름으로 호출할 수 있습니다.";
+    if (t.match(/^(?:const|let|var)\s+\{/)) return "객체에서 필요한 값들만 골라서 변수로 만듭니다(구조 분해 할당).";
+    if (t.match(/^(?:const|let|var)\s+\[/)) return "배열에서 값을 순서대로 꺼내 변수로 만듭니다(배열 구조 분해).";
+    return "값을 저장할 변수를 선언합니다.";
+  }
+
+  // return
+  if (t === "return (" || t === "return(" || t === "return (") {
+    return "화면에 보여줄 JSX를 반환합니다. 이 아래가 실제로 화면에 그려지는 부분입니다.";
+  }
+  if (t === "return null;" || t === "return null") {
+    return "아무것도 렌더링하지 않고 반환합니다. 조건부로 화면에 아무것도 보여주지 않을 때 사용합니다.";
+  }
+
+  // JSX 열기 태그
+  const jsxOpenMatch = t.match(/^<([A-Za-z][A-Za-z0-9.]*)/);
+  if (jsxOpenMatch) {
+    const tag = jsxOpenMatch[1];
+    if (/^[A-Z]/.test(tag)) return `<${tag}> — 직접 만들었거나 외부에서 가져온 컴포넌트를 화면에 배치합니다.`;
+    const desc = JSX_TAG_MAP[tag.toLowerCase()];
+    return desc ? `<${tag}> — ${desc}` : `HTML <${tag}> 태그를 렌더링합니다.`;
+  }
+
+  // JSX 닫기 태그
+  if (t.match(/^<\/[A-Za-z]/)) return "JSX 요소를 닫는 태그입니다.";
+
+  // async/await
+  if (t.startsWith("await ") || t.includes(" await ")) {
+    return "await — 비동기 작업(API 호출, DB 조회 등)이 끝날 때까지 기다립니다.";
+  }
+  if (t.startsWith("async ")) return "async 함수 — 내부에서 await를 사용할 수 있는 비동기 함수입니다.";
+
+  // if/else
+  if (t.match(/^if\s*\(/)) return "조건문 — 조건이 참(true)일 때만 아래 코드를 실행합니다.";
+  if (t.startsWith("} else if")) return "앞의 if가 거짓일 때 이 조건을 추가로 확인합니다.";
+  if (t === "} else {" || t === "else {") return "앞의 조건이 모두 거짓일 때 실행되는 블록입니다.";
+
+  // try/catch
+  if (t === "try {") return "try 블록 — 에러가 날 수 있는 코드를 안전하게 실행합니다. 에러 발생 시 catch로 이동합니다.";
+  if (t.startsWith("catch")) return "catch 블록 — try 안에서 에러가 발생하면 여기서 처리합니다.";
+  if (t === "finally {") return "finally 블록 — 에러 여부와 상관없이 항상 마지막에 실행됩니다.";
+
+  // 이벤트 핸들러 props
+  if (t.includes("onClick=")) return "onClick — 사용자가 이 요소를 클릭했을 때 실행할 함수를 지정합니다.";
+  if (t.includes("onChange=")) return "onChange — 입력값이 바뀔 때마다 실행할 함수를 지정합니다.";
+  if (t.includes("onSubmit=")) return "onSubmit — 폼이 제출될 때 실행할 함수를 지정합니다.";
+  if (t.includes("onKeyDown=") || t.includes("onKeyUp=")) return "키보드 키를 눌렀을 때 실행할 함수를 지정합니다.";
+
+  // className
+  if (t.startsWith("className=") || t.includes(" className=")) {
+    return "className — 이 요소에 적용할 CSS 클래스를 지정합니다. HTML의 class 속성과 같습니다.";
+  }
+
+  // interface/type
+  if (t.match(/^(?:export\s+)?(?:interface|type)\s+/)) {
+    return "TypeScript 타입 정의 — 어떤 모양의 데이터인지 설계도를 그립니다. 실행에는 영향 없음.";
+  }
+
+  // 괄호/중괄호만
+  if (/^[{}\[\]();<>]+$/.test(t)) return "코드 블록이나 구문을 여닫는 기호입니다.";
+
+  return "코드의 일부입니다. 위아래 맥락과 함께 읽어보세요.";
+}
+
 // ─── 메인 분석 함수 ────────────────────────────────────────────────
 export function analyzeCode(code: string): AnalysisResult {
   const isClient =
