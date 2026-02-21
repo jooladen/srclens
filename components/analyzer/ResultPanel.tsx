@@ -87,7 +87,10 @@ export function ResultPanel({ result, loading, error }: ResultPanelProps) {
       <ScoreCard score={result.score} />
       <SummaryCard summary={result.summary} stats={result.stats} />
       <SuggestionsCard suggestions={result.suggestions} />
-      <ComponentTree root={result.componentTree} />
+      <ComponentTree
+        key={`tree-${result.stats.componentName}-${result.componentTree.children.length}`}
+        root={result.componentTree}
+      />
       {result.sections.map((section, i) => (
         <SectionCard key={i} section={section} />
       ))}
