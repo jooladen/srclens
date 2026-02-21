@@ -645,6 +645,71 @@ export function explainLine(line: string): string {
   return "코드의 일부입니다. 위아래 맥락과 함께 읽어보세요.";
 }
 
+// ─── 짝 중괄호 탐색 ───────────────────────────────────────────────
+function stripStringsAndComments(line: string): string {
+  let result = "";
+  let i = 0;
+  let inString: string | null = null;
+
+  while (i < line.length) {
+    const ch = line[i];
+
+    if (inString) {
+      if (ch === "\\" && i + 1 < line.length) {
+        i += 2; // 이스케이프 문자 건너뜀
+        continue;
+      }
+      if (ch === inString) inString = null;
+      i++;
+      continue;
+    }
+
+    // 한 줄 주석 — 이후 전부 무시
+    if (ch === "/" && line[i + 1] === "/") break;
+
+    // 문자열/템플릿 리터럴 시작
+    if (ch === '"' || ch === "'" || ch === "`") {
+      inString = ch;
+      i++;
+      continue;
+    }
+
+    result += ch;
+    i++;
+  }
+  return result;
+}
+
+export function findMatchingBracket(
+  lines: string[],
+  lineIndex: number // 0-based
+): { matchLine: number; direction: "down" | "up" } | null {
+  const stripped = stripStringsAndComments(lines[lineIndex]);
+  const opens = (stripped.match(/\{/g) ?? []).length;
+  const closes = (stripped.match(/\}/g) ?? []).length;
+  const unmatched = opens - closes;
+
+  if (unmatched > 0) {
+    // 케이스 A: 아래로 스캔해서 닫는 } 줄 찾기
+    let depth = unmatched;
+    for (let i = lineIndex + 1; i < lines.length; i++) {
+      const s = stripStringsAndComments(lines[i]);
+      depth += (s.match(/\{/g) ?? []).length - (s.match(/\}/g) ?? []).length;
+      if (depth <= 0) return { matchLine: i, direction: "down" };
+    }
+  } else if (unmatched < 0) {
+    // 케이스 B: 위로 스캔해서 여는 { 줄 찾기
+    let depth = -unmatched;
+    for (let i = lineIndex - 1; i >= 0; i--) {
+      const s = stripStringsAndComments(lines[i]);
+      depth += (s.match(/\}/g) ?? []).length - (s.match(/\{/g) ?? []).length;
+      if (depth <= 0) return { matchLine: i, direction: "up" };
+    }
+  }
+
+  return null;
+}
+
 // ─── 메인 분석 함수 ────────────────────────────────────────────────
 export function analyzeCode(code: string): AnalysisResult {
   const isClient =
