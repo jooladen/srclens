@@ -158,7 +158,12 @@ export function LearnMode({ code }: Props) {
                       }}
                       className="flex items-center gap-1 pl-5 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
                     >
-                      {matchInfo.direction === "down" ? "↓ 블록 끝으로" : "↑ 블록 시작으로"}
+                      {matchInfo.direction === "down" ? "↓" : "↑"}
+                      <span>
+                        {matchInfo.direction === "down" ? "닫히는 줄" : "열리는 줄"} —{" "}
+                        <strong className="text-gray-400">{matchInfo.matchLine + 1}번</strong>
+                        으로 이동
+                      </span>
                     </button>
                   )}
                 </div>
