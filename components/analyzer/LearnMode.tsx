@@ -7,9 +7,30 @@ interface Props {
   code: string;
 }
 
+// 괄호 타입별 블록 스타일
+const BLOCK_STYLE = {
+  "{": {
+    border: "border-cyan-600/50",
+    bg: "bg-cyan-950/20",
+    hoverBg: "hover:bg-cyan-950/30",
+    lineNum: "text-cyan-500/80",
+  },
+  "(": {
+    border: "border-violet-600/50",
+    bg: "bg-violet-950/20",
+    hoverBg: "hover:bg-violet-950/30",
+    lineNum: "text-violet-500/80",
+  },
+  "[": {
+    border: "border-emerald-600/50",
+    bg: "bg-emerald-950/20",
+    hoverBg: "hover:bg-emerald-950/30",
+    lineNum: "text-emerald-500/80",
+  },
+} as const;
+
 export function LearnMode({ code }: Props) {
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
-  const [highlightLine, setHighlightLine] = useState<number | null>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
   const lines = code.split("\n");
 
@@ -18,16 +39,25 @@ export function LearnMode({ code }: Props) {
     setSelectedLine(selectedLine === lineNum ? null : lineNum);
   };
 
-  const scrollToMatch = (targetIndex: number) => {
-    const targetLineNum = targetIndex + 1;
-    setHighlightLine(targetLineNum);
+  const scrollToLine = (targetIndex: number) => {
     lineRefs.current[targetIndex]?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setTimeout(() => setHighlightLine(null), 1500);
   };
 
-  // 선택된 줄의 짝 중괄호 정보
+  // 짝 탐색
   const matchInfo =
     selectedLine !== null ? findMatchingBracket(lines, selectedLine - 1) : null;
+
+  // 블록 범위 (1-based, inclusive)
+  const blockStart =
+    matchInfo?.direction === "up" ? matchInfo.matchLine + 1 : selectedLine;
+  const blockEnd =
+    matchInfo?.direction === "up"
+      ? selectedLine
+      : matchInfo
+      ? matchInfo.matchLine + 1
+      : null;
+
+  const bs = matchInfo ? BLOCK_STYLE[matchInfo.bracketType] : null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -48,28 +78,47 @@ export function LearnMode({ code }: Props) {
         {lines.map((line, idx) => {
           const lineNum = idx + 1;
           const isSelected = selectedLine === lineNum;
-          const isHighlighted = highlightLine === lineNum;
           const isEmpty = !line.trim();
           const explanation = isSelected ? explainLine(line) : null;
 
+          const inBlock =
+            blockStart !== null &&
+            blockEnd !== null &&
+            lineNum >= blockStart &&
+            lineNum <= blockEnd;
+          const isBoundary = lineNum === blockStart || lineNum === blockEnd;
+
           return (
-            <div key={idx} ref={(el) => { lineRefs.current[idx] = el; }}>
+            <div
+              key={idx}
+              ref={(el) => { lineRefs.current[idx] = el; }}
+              className={
+                inBlock && bs
+                  ? `border-l-2 ${bs.border}`
+                  : "border-l-2 border-transparent"
+              }
+            >
               <button
                 onClick={() => handleClick(lineNum, line)}
                 disabled={isEmpty}
                 className={`w-full text-left flex items-start gap-0 transition-colors group
-                  ${isEmpty ? "cursor-default" : "hover:bg-gray-900"}
-                  ${isSelected ? "bg-yellow-950/30 hover:bg-yellow-950/30" : ""}
-                  ${isHighlighted ? "bg-cyan-950/40 ring-1 ring-inset ring-cyan-700/50" : ""}
+                  ${isEmpty ? "cursor-default" : ""}
+                  ${
+                    isSelected
+                      ? "bg-yellow-950/30 hover:bg-yellow-950/30"
+                      : inBlock && bs
+                      ? `${bs.bg} ${bs.hoverBg}`
+                      : "hover:bg-gray-900"
+                  }
                 `}
               >
                 {/* 줄 번호 */}
                 <span
                   className={`select-none w-10 shrink-0 text-right pr-3 py-0.5 text-xs leading-6
                     ${isSelected ? "text-yellow-400" : ""}
-                    ${isHighlighted ? "text-cyan-400" : ""}
-                    ${!isSelected && !isHighlighted ? "text-gray-700 group-hover:text-gray-500" : ""}
-                    ${isEmpty ? "group-hover:text-gray-700" : ""}
+                    ${!isSelected && isBoundary && bs ? bs.lineNum : ""}
+                    ${!isSelected && !isBoundary ? "text-gray-700 group-hover:text-gray-500" : ""}
+                    ${isEmpty && !isSelected ? "group-hover:text-gray-700" : ""}
                   `}
                 >
                   {lineNum}
@@ -78,11 +127,9 @@ export function LearnMode({ code }: Props) {
                 {/* 줄 내용 */}
                 <span
                   className={`flex-1 py-0.5 pr-4 leading-6 whitespace-pre
-                    ${isSelected ? "text-yellow-200" : ""}
-                    ${isHighlighted ? "text-cyan-200" : ""}
-                    ${!isSelected && !isHighlighted ? "text-gray-300" : ""}
+                    ${isSelected ? "text-yellow-200" : "text-gray-300"}
                     ${isEmpty ? "text-transparent select-none" : ""}
-                    ${!isEmpty && !isSelected && !isHighlighted ? "group-hover:text-white" : ""}
+                    ${!isEmpty && !isSelected ? "group-hover:text-white" : ""}
                   `}
                 >
                   {line || " "}
@@ -96,7 +143,7 @@ export function LearnMode({ code }: Props) {
                 )}
               </button>
 
-              {/* 설명 패널 (인라인 확장) */}
+              {/* 설명 패널 */}
               {isSelected && explanation && (
                 <div className="mx-2 mb-1 flex flex-col gap-1 px-3 py-2 bg-yellow-900/20 border border-yellow-800/40 rounded-lg text-xs text-yellow-200 leading-relaxed">
                   <div className="flex items-start gap-2">
@@ -107,17 +154,11 @@ export function LearnMode({ code }: Props) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        scrollToMatch(matchInfo.matchLine);
+                        scrollToLine(matchInfo.matchLine);
                       }}
-                      className="flex items-center gap-1 text-cyan-400 hover:text-cyan-200 transition-colors text-[11px] pl-5"
+                      className="flex items-center gap-1 pl-5 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
                     >
-                      <span>{matchInfo.direction === "down" ? "↓" : "↑"}</span>
-                      <span>
-                        이 블록은{" "}
-                        <strong className="text-cyan-300">{matchInfo.matchLine + 1}번 줄</strong>
-                        에서 {matchInfo.direction === "down" ? "닫힙니다" : "열렸습니다"}
-                      </span>
-                      <span className="text-gray-500 ml-1">[이동]</span>
+                      {matchInfo.direction === "down" ? "↓ 블록 끝으로" : "↑ 블록 시작으로"}
                     </button>
                   )}
                 </div>

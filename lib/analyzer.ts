@@ -683,27 +683,36 @@ function stripStringsAndComments(line: string): string {
 export function findMatchingBracket(
   lines: string[],
   lineIndex: number // 0-based
-): { matchLine: number; direction: "down" | "up" } | null {
+): { matchLine: number; direction: "down" | "up"; bracketType: "{" | "(" | "[" } | null {
   const stripped = stripStringsAndComments(lines[lineIndex]);
-  const opens = (stripped.match(/\{/g) ?? []).length;
-  const closes = (stripped.match(/\}/g) ?? []).length;
-  const unmatched = opens - closes;
+  const count = (s: string, ch: string) => s.split(ch).length - 1;
 
-  if (unmatched > 0) {
-    // 케이스 A: 아래로 스캔해서 닫는 } 줄 찾기
-    let depth = unmatched;
-    for (let i = lineIndex + 1; i < lines.length; i++) {
-      const s = stripStringsAndComments(lines[i]);
-      depth += (s.match(/\{/g) ?? []).length - (s.match(/\}/g) ?? []).length;
-      if (depth <= 0) return { matchLine: i, direction: "down" };
-    }
-  } else if (unmatched < 0) {
-    // 케이스 B: 위로 스캔해서 여는 { 줄 찾기
-    let depth = -unmatched;
-    for (let i = lineIndex - 1; i >= 0; i--) {
-      const s = stripStringsAndComments(lines[i]);
-      depth += (s.match(/\}/g) ?? []).length - (s.match(/\{/g) ?? []).length;
-      if (depth <= 0) return { matchLine: i, direction: "up" };
+  // 우선순위: {} → () → []
+  const pairs: Array<[string, string, "{" | "(" | "["]> = [
+    ["{", "}", "{"],
+    ["(", ")", "("],
+    ["[", "]", "["],
+  ];
+
+  for (const [open, close, type] of pairs) {
+    const unmatched = count(stripped, open) - count(stripped, close);
+
+    if (unmatched > 0) {
+      // 아래로 스캔: 닫는 짝 찾기
+      let depth = unmatched;
+      for (let i = lineIndex + 1; i < lines.length; i++) {
+        const s = stripStringsAndComments(lines[i]);
+        depth += count(s, open) - count(s, close);
+        if (depth <= 0) return { matchLine: i, direction: "down", bracketType: type };
+      }
+    } else if (unmatched < 0) {
+      // 위로 스캔: 여는 짝 찾기
+      let depth = -unmatched;
+      for (let i = lineIndex - 1; i >= 0; i--) {
+        const s = stripStringsAndComments(lines[i]);
+        depth += count(s, close) - count(s, open);
+        if (depth <= 0) return { matchLine: i, direction: "up", bracketType: type };
+      }
     }
   }
 
