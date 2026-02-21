@@ -1,11 +1,13 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-21T01:20:24.833Z",
+  "lastUpdated": "2026-02-21T02:03:23.937Z",
   "activeFeatures": [
     "srclens",
     "analyze",
     "analyzer",
-    "소스분석기"
+    "소스분석기",
+    "_components",
+    "AppRouter최적화"
   ],
   "primaryFeature": "srclens",
   "features": {
@@ -18,9 +20,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-21T00:47:08.282Z",
-        "lastUpdated": "2026-02-21T01:20:24.833Z"
+        "lastUpdated": "2026-02-21T02:03:23.937Z"
       },
-      "lastFile": "/c/Users/jooladen/Desktop/cluade-code2/srclens/lib/analyzer.ts"
+      "lastFile": "/c/Users/jooladen/Desktop/cluade-code2/srclens/deploy.sh"
     },
     "analyze": {
       "phase": "do",
@@ -61,6 +63,33 @@
       },
       "previousPhase": "check",
       "autoAdvanced": true
+    },
+    "_components": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-21T01:44:38.744Z",
+        "lastUpdated": "2026-02-21T01:44:38.744Z"
+      },
+      "lastFile": "/c/Users/jooladen/Desktop/cluade-code2/srclens/app/_components/AnalyzerClient.tsx"
+    },
+    "AppRouter최적화": {
+      "phase": "act",
+      "phaseNumber": 5,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-21T01:50:08.731Z",
+        "lastUpdated": "2026-02-21T01:50:08.732Z"
+      },
+      "previousPhase": "check",
+      "autoAdvanced": true
     }
   },
   "pipeline": {
@@ -71,7 +100,7 @@
   "session": {
     "startedAt": "2026-02-21T00:34:20.845Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-21T01:20:24.833Z"
+    "lastActivity": "2026-02-21T02:03:23.937Z"
   },
   "history": [
     {
@@ -196,6 +225,36 @@
     },
     {
       "timestamp": "2026-02-21T01:20:24.833Z",
+      "feature": "srclens",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-21T01:44:21.586Z",
+      "feature": "srclens",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-21T01:44:38.744Z",
+      "feature": "_components",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-21T01:49:37.208Z",
+      "feature": "srclens",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-21T01:50:08.732Z",
+      "feature": "AppRouter최적화",
+      "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-21T02:03:23.937Z",
       "feature": "srclens",
       "phase": "do",
       "action": "updated"
