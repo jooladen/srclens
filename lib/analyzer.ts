@@ -1,4 +1,4 @@
-import type { AnalysisResult, AnalysisSection, AnalysisStats } from "@/types/analysis";
+import type { AnalysisResult, AnalysisSection, AnalysisStats, CodeScore, Suggestion } from "@/types/analysis";
 
 // ─── Import 설명 사전 ─────────────────────────────────────────────
 const IMPORT_MAP: Record<string, string> = {
@@ -325,6 +325,120 @@ function generateSummary(
   return parts.join(" ");
 }
 
+// ─── 점수 계산 ──────────────────────────────────────────────────────
+function calculateScore(
+  hooks: { name: string }[],
+  imports: { from: string }[],
+  isClient: boolean
+): CodeScore {
+  let score = 100;
+  const hookNames = hooks.map((h) => h.name);
+
+  // 감점 요소
+  if (imports.length > 8) score -= 10;
+  if (imports.length > 12) score -= 10;
+  if (hooks.length > 5) score -= 10;
+  if (hookNames.includes("useReducer")) score -= 5;
+  if (hookNames.includes("useMemo")) score -= 5;
+  if (hookNames.includes("useCallback")) score -= 5;
+  if (hookNames.includes("useImperativeHandle")) score -= 10;
+  if (isClient && hooks.length === 0) score -= 5; // use client인데 훅 없음
+  if (hookNames.filter((n) => n === "useEffect").length > 1) score -= 5;
+
+  // 가산 요소
+  if (!isClient && hooks.length === 0) score = Math.min(100, score + 5);
+  if (imports.length <= 2) score = Math.min(100, score + 5);
+
+  score = Math.max(0, Math.min(100, score));
+
+  const grade =
+    score >= 90 ? "완벽" : score >= 70 ? "좋음" : score >= 50 ? "보통" : "개선필요";
+  const gradeEmoji =
+    score >= 90 ? "🏆" : score >= 70 ? "👍" : score >= 50 ? "😊" : "💪";
+  const complexity =
+    hooks.length + imports.length <= 4
+      ? "낮음"
+      : hooks.length + imports.length <= 8
+      ? "보통"
+      : "높음";
+  const beginnerFriendly =
+    !hookNames.some((n) => ["useReducer", "useMemo", "useCallback", "useImperativeHandle"].includes(n)) &&
+    hooks.length <= 3
+      ? "높음"
+      : hooks.length <= 5
+      ? "보통"
+      : "낮음";
+
+  return { score, grade, gradeEmoji, complexity, beginnerFriendly };
+}
+
+// ─── 개선 제안 ──────────────────────────────────────────────────────
+function generateSuggestions(
+  hooks: { name: string }[],
+  isClient: boolean,
+  code: string
+): Suggestion[] {
+  const suggestions: Suggestion[] = [];
+  const hookNames = hooks.map((h) => h.name);
+
+  if (isClient && hooks.length === 0) {
+    suggestions.push({
+      icon: "💡",
+      title: "'use client' 제거 가능",
+      description: "훅을 사용하지 않는다면 서버 컴포넌트로 바꿀 수 있어요. 더 빠른 페이지 로드!",
+      level: "tip",
+    });
+  }
+
+  const useStateCount = hookNames.filter((n) => n === "useState").length;
+  if (useStateCount >= 3) {
+    suggestions.push({
+      icon: "⚡",
+      title: "useState가 많아요",
+      description: `useState가 ${useStateCount}개네요. useReducer로 묶으면 코드가 훨씬 깔끔해져요.`,
+      level: "tip",
+    });
+  }
+
+  if (hookNames.includes("useEffect") && code.includes("fetch(")) {
+    suggestions.push({
+      icon: "🚀",
+      title: "데이터 요청 최적화",
+      description: "useEffect + fetch 조합은 SWR이나 React Query로 바꾸면 3줄로 줄어들고, 캐싱도 자동이에요!",
+      level: "tip",
+    });
+  }
+
+  if (!hookNames.includes("useCallback") && hookNames.includes("useState") && code.includes("onClick")) {
+    suggestions.push({
+      icon: "📝",
+      title: "함수 최적화 팁",
+      description: "자식 컴포넌트에 함수를 props로 넘긴다면 useCallback으로 감싸보세요.",
+      level: "info",
+    });
+  }
+
+  if (hookNames.includes("useEffect") && !code.includes("return ()")) {
+    suggestions.push({
+      icon: "🧹",
+      title: "useEffect 정리(cleanup) 확인",
+      description: "이벤트 리스너나 타이머를 쓴다면 return () => {} 로 정리해줘야 메모리 누수가 없어요.",
+      level: "warning",
+    });
+  }
+
+  if (suggestions.length === 0) {
+    suggestions.push({
+      icon: "✨",
+      title: "잘 작성된 코드예요!",
+      description: "특별한 개선점이 없어요. 이 패턴을 유지하세요.",
+      level: "info",
+    });
+  }
+
+  return suggestions;
+}
+
 // ─── 메인 분석 함수 ────────────────────────────────────────────────
 export function analyzeCode(code: string): AnalysisResult {
   const isClient =
@@ -439,5 +553,7 @@ export function analyzeCode(code: string): AnalysisResult {
     ),
     sections,
     stats,
+    score: calculateScore(rawHooks, rawImports, isClient),
+    suggestions: generateSuggestions(rawHooks, isClient, code),
   };
 }

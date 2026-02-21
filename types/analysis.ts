@@ -20,10 +20,35 @@ export interface AnalysisStats {
   componentName: string;
 }
 
+export interface CodeScore {
+  score: number;
+  grade: "완벽" | "좋음" | "보통" | "개선필요";
+  gradeEmoji: string;
+  complexity: "낮음" | "보통" | "높음";
+  beginnerFriendly: "높음" | "보통" | "낮음";
+}
+
+export interface Suggestion {
+  icon: string;
+  title: string;
+  description: string;
+  level: "tip" | "warning" | "info";
+}
+
+export interface HistoryItem {
+  id: string;
+  code: string;
+  componentName: string;
+  score: number;
+  date: string;
+}
+
 export interface AnalysisResult {
   summary: string;
   sections: AnalysisSection[];
   stats: AnalysisStats;
+  score: CodeScore;
+  suggestions: Suggestion[];
 }
 
 export interface AnalyzeRequest {
