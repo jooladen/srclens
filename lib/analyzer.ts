@@ -548,51 +548,161 @@ export function explainLine(line: string): string {
 
   if (!t) return "";
 
-  // 주석
+  // ── 주석 ──────────────────────────────────────────────────────────
   if (t.startsWith("//") || t.startsWith("/*") || t.startsWith("*") || t.startsWith("*/")) {
     return "주석 — 실행되지 않는 메모입니다. 코드에 설명을 남길 때 사용합니다.";
   }
 
-  // use client / use server
+  // ── use client / use server ────────────────────────────────────────
   if (t === "'use client'" || t === '"use client"') {
     return "이 파일이 브라우저(클라이언트)에서 실행됨을 선언합니다. useState, onClick 같은 기능을 쓰려면 필수입니다.";
   }
   if (t === "'use server'" || t === '"use server"') {
-    return "이 파일이 서버에서만 실행됨을 선언합니다.";
+    return "이 파일이 서버에서만 실행됩니다. 데이터베이스 조회, 파일 읽기 등 서버 작업에 사용합니다.";
   }
 
-  // import
+  // ── import ────────────────────────────────────────────────────────
   if (t.startsWith("import ")) {
     const m = t.match(/from\s+['"](.+)['"]/);
     if (m) return `불러오기(import) — ${explainImport(m[1], t)}`;
     return "다른 파일이나 라이브러리에서 코드를 불러옵니다.";
   }
 
-  // export default function / export function
+  // ── export ────────────────────────────────────────────────────────
   const exportFnMatch = t.match(/^export\s+(?:default\s+)?(?:async\s+)?function\s+(\w+)/);
   if (exportFnMatch) {
-    return `'${exportFnMatch[1]}' 컴포넌트(함수)를 정의하고 외부에서 사용할 수 있게 내보냅니다.`;
+    const isAsync = t.includes("async");
+    return `'${exportFnMatch[1]}' ${isAsync ? "비동기 " : ""}컴포넌트(함수)를 정의하고 다른 파일에서 가져다 쓸 수 있게 내보냅니다.`;
+  }
+  if (t.match(/^export\s+default\s+/) && !t.includes("function")) {
+    return "이 파일의 기본 내보내기입니다. 다른 곳에서 import MyComponent 형태로 가져옵니다.";
+  }
+  if (t.match(/^export\s+\{/)) {
+    return "여러 값을 한번에 이름 붙여 내보냅니다(named export). import { A, B } 형태로 가져옵니다.";
+  }
+  if (t.match(/^export\s+const\s+/)) {
+    const name = t.match(/^export\s+const\s+(\w+)/)?.[1];
+    return `'${name ?? ""}' 상수/함수를 내보냅니다. 다른 파일에서 import { ${name ?? ""} } 로 가져올 수 있어요.`;
   }
 
-  // 훅 사용
+  // ── useState 스마트 파싱 ───────────────────────────────────────────
+  const useStateMatch = t.match(/const\s+\[(\w+),\s*(\w+)\]\s*=\s*useState\(([^)]*)\)/);
+  if (useStateMatch) {
+    const [, val, setter, init] = useStateMatch;
+    const initDesc = init.trim() === "" ? "undefined" : `\`${init.trim()}\``;
+    return `\`${val}\` 값을 저장하는 상태 변수예요. \`${setter}(새값)\`으로 바꾸면 화면이 자동으로 새로 그려집니다. 처음 값은 ${initDesc}이에요.`;
+  }
+
+  // ── useEffect 의존성 배열 분석 ─────────────────────────────────────
+  const useEffectMatch = t.match(/useEffect\s*\(/);
+  if (useEffectMatch) {
+    const depsMatch = t.match(/,\s*\[([^\]]*)\]\s*\)/);
+    if (depsMatch) {
+      const deps = depsMatch[1].trim();
+      if (deps === "") {
+        return "useEffect — 컴포넌트가 화면에 처음 나타날 때 딱 한 번만 실행돼요. 빈 배열 [] 이 '처음 한 번만'을 의미합니다.";
+      }
+      return `useEffect — \`${deps}\`가 바뀔 때마다 자동으로 실행돼요. 의존성 배열 [${deps}]에 적힌 값이 바뀌면 다시 실행됩니다.`;
+    }
+    if (t.endsWith(");") || t.endsWith(")")) {
+      return "useEffect — 렌더링될 때마다 실행돼요. ⚠️ 의존성 배열이 없으면 매번 실행되어 성능 문제가 생길 수 있어요.";
+    }
+    return "useEffect — 화면이 그려진 후 자동으로 실행되는 코드 블록입니다. 의존성 배열로 실행 타이밍을 제어해요.";
+  }
+
+  // ── 기타 훅 ───────────────────────────────────────────────────────
   const hookMatch = t.match(/\b(use[A-Z]\w*)\s*[(<]/);
   if (hookMatch) return explainHook(hookMatch[1]);
 
-  // const/let/var 선언
-  const varMatch = t.match(/^(?:const|let|var)\s+/);
-  if (varMatch) {
-    if (t.includes("=>")) return "함수를 변수에 저장합니다. 나중에 이 이름으로 호출할 수 있습니다.";
-    if (t.match(/^(?:const|let|var)\s+\{/)) return "객체에서 필요한 값들만 골라서 변수로 만듭니다(구조 분해 할당).";
-    if (t.match(/^(?:const|let|var)\s+\[/)) return "배열에서 값을 순서대로 꺼내 변수로 만듭니다(배열 구조 분해).";
-    return "값을 저장할 변수를 선언합니다.";
+  // ── const/let/var 선언 ────────────────────────────────────────────
+  const varKw = t.match(/^(const|let|var)\s+/);
+  if (varKw) {
+    const kw = varKw[1];
+
+    // 함수 선언 (화살표)
+    const arrowFnMatch = t.match(/^(?:const|let)\s+(\w+)\s*=\s*(?:async\s*)?\(/);
+    if (arrowFnMatch && t.includes("=>")) {
+      const name = arrowFnMatch[1];
+      const isAsync = t.includes("async");
+      return `\`${name}\` ${isAsync ? "비동기 " : ""}함수를 만듭니다. 아래에서 \`${name}()\`으로 호출할 수 있어요.`;
+    }
+
+    // router.push 패턴
+    if (t.includes("useRouter") || t.includes("router")) {
+      return "Next.js 라우터를 가져옵니다. `router.push('/경로')`로 페이지를 이동할 수 있어요.";
+    }
+
+    // 구조 분해 할당 (객체)
+    if (t.match(/^(?:const|let|var)\s+\{/)) {
+      const srcMatch = t.match(/}\s*=\s*(.+)/);
+      const src = srcMatch?.[1]?.replace(/;$/, "").trim();
+      return src
+        ? `\`${src}\`에서 필요한 값들만 골라서 변수로 꺼냅니다(객체 구조 분해).`
+        : "객체에서 필요한 값들만 골라서 변수로 만듭니다(구조 분해 할당).";
+    }
+
+    // 구조 분해 할당 (배열)
+    if (t.match(/^(?:const|let|var)\s+\[/)) {
+      return "배열에서 값을 순서대로 꺼내 변수로 만듭니다(배열 구조 분해).";
+    }
+
+    // .map() 배열 렌더링
+    if (t.includes(".map(")) {
+      const arrMatch = t.match(/(\w+)\.map\(/);
+      const arr = arrMatch?.[1];
+      return arr
+        ? `\`${arr}\` 배열의 각 항목을 JSX로 변환해서 목록을 그립니다. React에서 리스트를 만드는 기본 방법이에요.`
+        : "배열의 각 항목을 JSX로 변환해서 목록을 그립니다.";
+    }
+
+    // .filter()
+    if (t.includes(".filter(")) {
+      return "배열에서 조건에 맞는 항목만 골라 새 배열을 만듭니다. 원본 배열은 바뀌지 않아요.";
+    }
+
+    // await fetch
+    if (t.includes("await fetch(") || t.includes("await axios")) {
+      const urlMatch = t.match(/fetch\(['"]([^'"]+)['"]/);
+      return urlMatch
+        ? `\`${urlMatch[1]}\` API에 요청을 보내고 결과를 기다립니다.`
+        : "서버 API에 요청을 보내고 응답을 기다립니다.";
+    }
+
+    // process.env
+    if (t.includes("process.env.")) {
+      const envMatch = t.match(/process\.env\.(\w+)/);
+      return envMatch
+        ? `환경변수 \`${envMatch[1]}\`를 읽어옵니다. .env 파일에 저장된 비밀 설정값(API 키, URL 등)이에요.`
+        : "환경변수를 읽어옵니다. .env 파일에 저장된 설정값이에요.";
+    }
+
+    const keyword = kw === "const" ? "변하지 않는 값" : "나중에 바꿀 수 있는 값";
+    return `${keyword}을 저장할 변수를 선언합니다.`;
   }
 
-  // return
+  // ── return ────────────────────────────────────────────────────────
   if (t === "return (" || t === "return(" || t === "return (") {
     return "화면에 보여줄 JSX를 반환합니다. 이 아래가 실제로 화면에 그려지는 부분입니다.";
   }
   if (t === "return null;" || t === "return null") {
-    return "아무것도 렌더링하지 않고 반환합니다. 조건부로 화면에 아무것도 보여주지 않을 때 사용합니다.";
+    return "아무것도 렌더링하지 않고 반환합니다. 조건에 따라 화면에 아무것도 보여주지 않을 때 씁니다.";
+  }
+
+  // ── JSX 인라인 패턴 ───────────────────────────────────────────────
+  // 조건부 렌더링: {cond && <X>}
+  const condAndMatch = t.match(/^\{(\w[\w.]*)\s*&&\s*(<\w)/);
+  if (condAndMatch) {
+    return `조건부 렌더링 — \`${condAndMatch[1]}\`이 참(true)일 때만 화면에 나타납니다. 거짓이면 아무것도 그려지지 않아요.`;
+  }
+  // 조건부 렌더링: {cond ? <A> : <B>}
+  const ternaryJsxMatch = t.match(/^\{(\w[\w.]*)\s*\?/);
+  if (ternaryJsxMatch) {
+    return `삼항 연산자 렌더링 — \`${ternaryJsxMatch[1]}\`이 참이면 ? 앞, 거짓이면 : 뒤의 내용을 보여줍니다.`;
+  }
+
+  // key prop
+  if (t.match(/\bkey=\{/) || t.match(/\bkey="/)) {
+    return "리스트 아이템의 고유 식별자(key)예요. React가 목록 변경을 추적하는 데 꼭 필요합니다. ⚠️ 없으면 경고가 떠요.";
   }
 
   // JSX 열기 태그
@@ -607,40 +717,127 @@ export function explainLine(line: string): string {
   // JSX 닫기 태그
   if (t.match(/^<\/[A-Za-z]/)) return "JSX 요소를 닫는 태그입니다.";
 
-  // async/await
+  // ── .map() 단독 (변수 선언 없이) ──────────────────────────────────
+  if (t.includes(".map(")) {
+    const arrMatch = t.match(/(\w+)\.map\(/);
+    const arr = arrMatch?.[1];
+    return arr
+      ? `\`${arr}\` 배열의 각 항목을 JSX로 변환해서 목록을 그립니다.`
+      : "배열의 각 항목을 JSX로 변환해서 목록을 그립니다.";
+  }
+
+  // ── async/await ───────────────────────────────────────────────────
+  if (t.startsWith("await fetch(") || t.startsWith("const res = await")) {
+    const urlMatch = t.match(/fetch\(['"]([^'"]+)['"]/);
+    return urlMatch
+      ? `\`${urlMatch[1]}\` API에 요청을 보내고 응답을 기다립니다.`
+      : "서버에 요청을 보내고 응답을 기다립니다.";
+  }
   if (t.startsWith("await ") || t.includes(" await ")) {
-    return "await — 비동기 작업(API 호출, DB 조회 등)이 끝날 때까지 기다립니다.";
+    return "await — 비동기 작업(API 호출, DB 조회 등)이 끝날 때까지 기다립니다. async 함수 안에서만 사용 가능해요.";
   }
   if (t.startsWith("async ")) return "async 함수 — 내부에서 await를 사용할 수 있는 비동기 함수입니다.";
 
-  // if/else
+  // ── 조건문 ────────────────────────────────────────────────────────
   if (t.match(/^if\s*\(/)) return "조건문 — 조건이 참(true)일 때만 아래 코드를 실행합니다.";
   if (t.startsWith("} else if")) return "앞의 if가 거짓일 때 이 조건을 추가로 확인합니다.";
   if (t === "} else {" || t === "else {") return "앞의 조건이 모두 거짓일 때 실행되는 블록입니다.";
 
-  // try/catch
+  // ── try/catch ─────────────────────────────────────────────────────
   if (t === "try {") return "try 블록 — 에러가 날 수 있는 코드를 안전하게 실행합니다. 에러 발생 시 catch로 이동합니다.";
   if (t.startsWith("catch")) return "catch 블록 — try 안에서 에러가 발생하면 여기서 처리합니다.";
   if (t === "finally {") return "finally 블록 — 에러 여부와 상관없이 항상 마지막에 실행됩니다.";
 
-  // 이벤트 핸들러 props
+  // ── 이벤트 핸들러 props ───────────────────────────────────────────
   if (t.includes("onClick=")) return "onClick — 사용자가 이 요소를 클릭했을 때 실행할 함수를 지정합니다.";
-  if (t.includes("onChange=")) return "onChange — 입력값이 바뀔 때마다 실행할 함수를 지정합니다.";
-  if (t.includes("onSubmit=")) return "onSubmit — 폼이 제출될 때 실행할 함수를 지정합니다.";
+  if (t.includes("onChange=")) return "onChange — 입력값이 바뀔 때마다 실행합니다. e.target.value로 현재 값을 꺼낼 수 있어요.";
+  if (t.includes("onSubmit=")) return "onSubmit — 폼이 제출될 때 실행합니다. e.preventDefault()로 페이지 새로고침을 막아야 해요.";
   if (t.includes("onKeyDown=") || t.includes("onKeyUp=")) return "키보드 키를 눌렀을 때 실행할 함수를 지정합니다.";
+  if (t.includes("onFocus=")) return "onFocus — 이 요소에 포커스가 올 때(클릭 or 탭 이동) 실행됩니다.";
+  if (t.includes("onBlur=")) return "onBlur — 포커스가 이 요소에서 떠날 때 실행됩니다. 유효성 검사에 자주 씁니다.";
 
-  // className
+  // ── e.target.value ────────────────────────────────────────────────
+  if (t.includes("e.target.value") || t.includes("event.target.value")) {
+    return "이벤트가 발생한 input 요소의 현재 입력 값을 가져옵니다. onChange 핸들러에서 자주 씁니다.";
+  }
+
+  // ── 옵셔널 체이닝 / null 병합 ────────────────────────────────────
+  if (t.includes("?.")) {
+    return "옵셔널 체이닝(?.) — 앞의 값이 null이나 undefined여도 에러가 나지 않아요. 없으면 그냥 undefined를 반환합니다.";
+  }
+  if (t.includes("??")) {
+    return "null 병합 연산자(??) — 앞의 값이 null이나 undefined일 때만 ?? 뒤의 기본값을 사용합니다. 0이나 빈 문자열은 그대로 사용해요.";
+  }
+
+  // ── 스프레드 연산자 ───────────────────────────────────────────────
+  if (t.includes("{...") || t.includes("[...")) {
+    const spreadMatch = t.match(/\{\.\.\.(\w+)\}/);
+    if (spreadMatch) {
+      return `스프레드 연산자 — \`${spreadMatch[1]}\`의 모든 속성을 한번에 펼쳐서 전달합니다. 일일이 쓰는 것보다 훨씬 간결해요.`;
+    }
+    return "스프레드 연산자 — 배열이나 객체의 모든 항목을 한번에 펼칩니다.";
+  }
+
+  // ── 삼항 연산자 ──────────────────────────────────────────────────
+  if (t.includes(" ? ") && t.includes(" : ")) {
+    return "삼항 연산자 — `조건 ? 참일 때 값 : 거짓일 때 값` 형태예요. if-else를 한 줄로 쓰는 방법입니다.";
+  }
+
+  // ── router.push ───────────────────────────────────────────────────
+  const routerPushMatch = t.match(/router\.push\(['"]([^'"]+)['"]/);
+  if (routerPushMatch) {
+    return `\`${routerPushMatch[1]}\` 페이지로 이동합니다. 뒤로 가기 버튼이 생겨요.`;
+  }
+  const routerReplaceMatch = t.match(/router\.replace\(['"]([^'"]+)['"]/);
+  if (routerReplaceMatch) {
+    return `\`${routerReplaceMatch[1]}\` 페이지로 이동합니다. router.push와 달리 뒤로 가기 기록이 남지 않아요.`;
+  }
+
+  // ── process.env ───────────────────────────────────────────────────
+  if (t.includes("process.env.")) {
+    const envMatch = t.match(/process\.env\.(\w+)/);
+    return envMatch
+      ? `환경변수 \`${envMatch[1]}\`를 읽어옵니다. .env 파일에 저장된 비밀 설정값(API 키 등)이에요. 코드에 직접 적으면 안 되는 것들!`
+      : "환경변수를 읽어옵니다. .env 파일에 저장된 설정값이에요.";
+  }
+
+  // ── className ────────────────────────────────────────────────────
   if (t.startsWith("className=") || t.includes(" className=")) {
+    if (t.includes("${") || t.includes("` ")) {
+      return "className — 템플릿 리터럴로 동적 CSS 클래스를 만들어요. 조건에 따라 다른 스타일을 적용할 수 있습니다.";
+    }
     return "className — 이 요소에 적용할 CSS 클래스를 지정합니다. HTML의 class 속성과 같습니다.";
   }
 
-  // interface/type
-  if (t.match(/^(?:export\s+)?(?:interface|type)\s+/)) {
-    return "TypeScript 타입 정의 — 어떤 모양의 데이터인지 설계도를 그립니다. 실행에는 영향 없음.";
+  // ── disabled prop ─────────────────────────────────────────────────
+  if (t.includes("disabled={")) {
+    return "disabled — 조건이 참일 때 이 요소를 비활성화합니다. 클릭이나 입력이 막혀요.";
   }
 
-  // 괄호/중괄호만
+  // ── style prop ───────────────────────────────────────────────────
+  if (t.includes("style={{")) {
+    return "인라인 스타일 — 직접 CSS를 지정합니다. 간단한 경우엔 좋지만, 보통은 className(Tailwind)이 더 유지보수하기 쉬워요.";
+  }
+
+  // ── interface/type ───────────────────────────────────────────────
+  const typeMatch = t.match(/^(?:export\s+)?(?:interface|type)\s+(\w+)/);
+  if (typeMatch) {
+    return `TypeScript 타입 \`${typeMatch[1]}\` 정의 — 데이터가 어떤 모양이어야 하는지 설계도를 그립니다. 실행에는 영향 없고, 실수를 미리 잡아줘요.`;
+  }
+
+  // ── 괄호/중괄호만 ────────────────────────────────────────────────
   if (/^[{}\[\]();<>]+$/.test(t)) return "코드 블록이나 구문을 여닫는 기호입니다.";
+
+  // ── for/while ────────────────────────────────────────────────────
+  if (t.match(/^for\s*\(/)) return "반복문 — 조건이 참인 동안 블록 안의 코드를 반복 실행합니다. React에서는 보통 .map()을 더 많이 씁니다.";
+  if (t.match(/^while\s*\(/)) return "while 반복문 — 조건이 참인 동안 계속 반복합니다.";
+
+  // ── switch ────────────────────────────────────────────────────────
+  if (t.match(/^switch\s*\(/)) return "switch문 — 값에 따라 여러 경우 중 하나를 실행합니다. if-else가 많을 때 깔끔하게 쓸 수 있어요.";
+  if (t.startsWith("case ")) return "case — switch문에서 이 값과 일치할 때 실행할 코드 블록입니다.";
+
+  // ── throw / new Error ─────────────────────────────────────────────
+  if (t.startsWith("throw ")) return "에러를 강제로 발생시킵니다. catch 블록이나 에러 바운더리에서 잡을 수 있어요.";
 
   return "코드의 일부입니다. 위아래 맥락과 함께 읽어보세요.";
 }
