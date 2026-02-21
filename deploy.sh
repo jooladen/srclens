@@ -27,11 +27,11 @@ notify() {
   local title="$1"
   local msg="$2"
   local tags="${3:-bell}"
-  curl -s \
+  printf '%s' "$msg" | curl -s \
     -H "Title: $title" \
     -H "Tags: $tags" \
-    -H "Content-Type: text/plain" \
-    -d "$msg" \
+    -H "Content-Type: text/plain; charset=utf-8" \
+    --data-binary @- \
     "https://ntfy.sh/$NTFY_TOPIC" > /dev/null 2>&1
 }
 
@@ -49,7 +49,14 @@ CHANGED=$(git status --porcelain)
 if [ -z "$CHANGED" ]; then
   echo "  변경사항 없음. 배포만 진행합니다."
   SKIP_GIT=true
+  CHANGED_COUNT=0
+  FILES_PREVIEW="(no changes)"
 else
+  CHANGED_COUNT=$(echo "$CHANGED" | grep -c .)
+  FILES_PREVIEW=$(echo "$CHANGED" | awk '{print $NF}' | sed 's|.*/||' | head -3 | tr '\n' ', ' | sed 's/, $//')
+  if [ "$CHANGED_COUNT" -gt 3 ]; then
+    FILES_PREVIEW="$FILES_PREVIEW (+$((CHANGED_COUNT - 3)) more)"
+  fi
   echo "  변경된 파일:"
   git status --short | sed 's/^/    /'
   SKIP_GIT=false
@@ -64,11 +71,16 @@ if [ "$SKIP_GIT" = false ]; then
   git commit -m "$COMMIT_MSG"
 
   if git push; then
+    COMMIT_HASH=$(git rev-parse --short HEAD)
     echo "  ✅ GitHub push 완료!"
-    notify "srclens: Push done!" "$COMMIT_MSG" "white_check_mark"
+    PUSH_MSG="$COMMIT_MSG
+---
+Files : $CHANGED_COUNT changed ($FILES_PREVIEW)
+Hash  : $COMMIT_HASH"
+    notify "srclens: Pushed ($CHANGED_COUNT files)" "$PUSH_MSG" "white_check_mark"
   else
     echo "  ❌ Push 실패!"
-    notify "srclens: Push failed!" "Check terminal" "x"
+    notify "srclens: Push failed!" "Commit: $COMMIT_MSG" "x"
     exit 1
   fi
 else
@@ -94,8 +106,11 @@ if [ ! -d ".vercel" ]; then
 fi
 
 VERCEL_LOG=$(mktemp)
+DEPLOY_START=$(date +%s)
 vercel --prod --yes > "$VERCEL_LOG" 2>&1
 VERCEL_STATUS=$?
+DEPLOY_END=$(date +%s)
+ELAPSED=$((DEPLOY_END - DEPLOY_START))
 
 # ── STEP 4: 결과 알림 ────────────────────────────────────────
 echo "[4/4] 결과 확인 중..."
@@ -109,10 +124,16 @@ if [ $VERCEL_STATUS -eq 0 ]; then
   echo "  🎉 배포 완료!"
   if [ -n "$DEPLOY_URL" ]; then
     echo "  🌐 주소: $DEPLOY_URL"
-    notify "srclens: Deploy done!" "$DEPLOY_URL" "rocket"
-  else
-    notify "srclens: Deploy done!" "Check Vercel dashboard" "rocket"
   fi
+
+  DEPLOY_MSG="$COMMIT_MSG
+---
+Files : $CHANGED_COUNT changed ($FILES_PREVIEW)
+Hash  : ${COMMIT_HASH:-(no commit)}
+URL   : ${DEPLOY_URL:-https://srclens.vercel.app}
+Time  : ${ELAPSED}s"
+  notify "srclens: Deployed in ${ELAPSED}s" "$DEPLOY_MSG" "rocket"
+
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 else
   echo ""
@@ -122,7 +143,9 @@ else
   echo "  에러 내용:"
   cat "$VERCEL_LOG" | sed 's/^/    /'
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  notify "srclens: Deploy failed!" "Check terminal for errors" "x"
+  ERROR_PREVIEW=$(tail -3 "$VERCEL_LOG" | tr '\n' ' ')
+  notify "srclens: Deploy failed!" "Commit: $COMMIT_MSG
+Error : $ERROR_PREVIEW" "x"
 fi
 
 rm -f "$VERCEL_LOG"
