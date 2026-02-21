@@ -22,3 +22,6 @@ node_modules
 
 # bkit 상태 파일 (로컬 전용)
 .bkit/agent-state.json
+
+# 개인 노트 (로컬 전용)
+notes/
