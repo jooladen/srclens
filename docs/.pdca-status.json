@@ -1,10 +1,11 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-21T01:09:29.614Z",
+  "lastUpdated": "2026-02-21T01:20:24.833Z",
   "activeFeatures": [
     "srclens",
     "analyze",
-    "analyzer"
+    "analyzer",
+    "소스분석기"
   ],
   "primaryFeature": "srclens",
   "features": {
@@ -17,9 +18,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-21T00:47:08.282Z",
-        "lastUpdated": "2026-02-21T01:09:04.189Z"
+        "lastUpdated": "2026-02-21T01:20:24.833Z"
       },
-      "lastFile": "/c/Users/jooladen/Desktop/cluade-code2/srclens/app/page.tsx"
+      "lastFile": "/c/Users/jooladen/Desktop/cluade-code2/srclens/lib/analyzer.ts"
     },
     "analyze": {
       "phase": "do",
@@ -46,6 +47,20 @@
         "lastUpdated": "2026-02-21T01:09:29.614Z"
       },
       "lastFile": "/c/Users/jooladen/Desktop/cluade-code2/srclens/components/analyzer/CodeInput.tsx"
+    },
+    "소스분석기": {
+      "phase": "act",
+      "phaseNumber": 5,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-21T01:16:46.280Z",
+        "lastUpdated": "2026-02-21T01:16:46.282Z"
+      },
+      "previousPhase": "check",
+      "autoAdvanced": true
     }
   },
   "pipeline": {
@@ -56,7 +71,7 @@
   "session": {
     "startedAt": "2026-02-21T00:34:20.845Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-21T01:09:29.614Z"
+    "lastActivity": "2026-02-21T01:20:24.833Z"
   },
   "history": [
     {
@@ -170,6 +185,18 @@
     {
       "timestamp": "2026-02-21T01:09:29.614Z",
       "feature": "analyzer",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-21T01:16:46.282Z",
+      "feature": "소스분석기",
+      "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-21T01:20:24.833Z",
+      "feature": "srclens",
       "phase": "do",
       "action": "updated"
     }
