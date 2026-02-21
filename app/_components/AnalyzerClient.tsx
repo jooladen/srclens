@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef, useCallback } from "react";
 import { CodeInput } from "@/components/analyzer/CodeInput";
 import { AnalyzeButton } from "@/components/analyzer/AnalyzeButton";
 import { ResultPanel } from "@/components/analyzer/ResultPanel";
@@ -10,6 +10,7 @@ import type { AnalysisResult, HistoryItem } from "@/types/analysis";
 
 const HISTORY_KEY = "srclens_history";
 const MAX_HISTORY = 5;
+const DEBOUNCE_MS = 600;
 
 function loadHistory(): HistoryItem[] {
   if (typeof window === "undefined") return [];
@@ -26,6 +27,18 @@ function saveHistory(item: HistoryItem) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
 }
 
+function encodeCode(code: string): string {
+  return btoa(encodeURIComponent(code));
+}
+
+function decodeCode(encoded: string): string {
+  try {
+    return decodeURIComponent(atob(encoded));
+  } catch {
+    return "";
+  }
+}
+
 export function AnalyzerClient() {
   const [code, setCode] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -33,27 +46,65 @@ export function AnalyzerClient() {
   const [isPending, startTransition] = useTransition();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [liveMode, setLiveMode] = useState(true);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // URL에서 코드 불러오기
   useEffect(() => {
     setHistory(loadHistory());
+    const params = new URLSearchParams(window.location.search);
+    const shared = params.get("code");
+    if (shared) {
+      const decoded = decodeCode(shared);
+      if (decoded) {
+        setCode(decoded);
+        startTransition(() => {
+          const res = analyzeCode(decoded);
+          setResult(res);
+          setActiveTab("result");
+        });
+      }
+    }
   }, []);
 
-  const analyze = () => {
-    if (!code.trim()) return;
+  const runAnalyze = useCallback((target: string) => {
+    if (!target.trim()) return;
     startTransition(() => {
-      const res = analyzeCode(code);
+      const res = analyzeCode(target);
       setResult(res);
       setActiveTab("result");
-
       const item: HistoryItem = {
         id: Date.now().toString(),
-        code,
+        code: target,
         componentName: res.stats.componentName,
         score: res.score.score,
-        date: new Date().toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+        date: new Date().toLocaleString("ko-KR", {
+          month: "numeric", day: "numeric",
+          hour: "2-digit", minute: "2-digit",
+        }),
       };
       saveHistory(item);
       setHistory(loadHistory());
+    });
+  }, []);
+
+  // 실시간 분석 (디바운스)
+  useEffect(() => {
+    if (!liveMode || !code.trim()) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => runAnalyze(code), DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [code, liveMode, runAnalyze]);
+
+  const handleShareLink = () => {
+    const encoded = encodeCode(code);
+    const url = `${window.location.origin}?code=${encoded}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
     });
   };
 
@@ -86,9 +137,7 @@ export function AnalyzerClient() {
           }`}
         >
           분석 결과
-          {result && (
-            <span className="ml-1 w-2 h-2 bg-green-400 rounded-full inline-block" />
-          )}
+          {result && <span className="ml-1 w-2 h-2 bg-green-400 rounded-full inline-block" />}
         </button>
       </div>
 
@@ -108,11 +157,39 @@ export function AnalyzerClient() {
             <CodeInput value={code} onChange={setCode} />
           </div>
 
-          <AnalyzeButton
-            onClick={analyze}
-            loading={isPending}
-            disabled={!code.trim()}
-          />
+          {/* 실시간 토글 + 버튼 */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setLiveMode(!liveMode)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                liveMode
+                  ? "bg-green-900 border-green-700 text-green-300"
+                  : "bg-gray-800 border-gray-700 text-gray-400"
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${liveMode ? "bg-green-400 animate-pulse" : "bg-gray-600"}`} />
+              {liveMode ? "실시간 ON" : "실시간 OFF"}
+            </button>
+
+            {!liveMode && (
+              <AnalyzeButton
+                onClick={() => runAnalyze(code)}
+                loading={isPending}
+                disabled={!code.trim()}
+              />
+            )}
+
+            {result && code && (
+              <button
+                type="button"
+                onClick={handleShareLink}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 rounded-lg transition-all"
+              >
+                {linkCopied ? "✅ 링크 복사됨!" : "🔗 공유 링크"}
+              </button>
+            )}
+          </div>
 
           {/* 히스토리 */}
           {history.length > 0 && (

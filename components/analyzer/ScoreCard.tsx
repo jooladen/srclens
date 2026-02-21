@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import type { CodeScore } from "@/types/analysis";
 
 interface ScoreCardProps {
@@ -5,6 +8,29 @@ interface ScoreCardProps {
 }
 
 export function ScoreCard({ score }: ScoreCardProps) {
+  const [displayed, setDisplayed] = useState(0);
+
+  useEffect(() => {
+    setDisplayed(0);
+    const target = score.score;
+    const duration = 800;
+    const steps = 40;
+    const interval = duration / steps;
+    let current = 0;
+
+    const timer = setInterval(() => {
+      current += target / steps;
+      if (current >= target) {
+        setDisplayed(target);
+        clearInterval(timer);
+      } else {
+        setDisplayed(Math.floor(current));
+      }
+    }, interval);
+
+    return () => clearInterval(timer);
+  }, [score.score]);
+
   const barColor =
     score.score >= 90
       ? "bg-green-500"
@@ -22,7 +48,7 @@ export function ScoreCard({ score }: ScoreCardProps) {
       </div>
 
       <div className="flex items-center gap-4 mb-4">
-        <div className="text-5xl font-black text-white">{score.score}</div>
+        <div className="text-5xl font-black text-white tabular-nums">{displayed}</div>
         <div>
           <div className="text-2xl">{score.gradeEmoji}</div>
           <div className="text-sm font-bold text-gray-300">{score.grade}</div>
@@ -32,7 +58,7 @@ export function ScoreCard({ score }: ScoreCardProps) {
       <div className="w-full bg-gray-800 rounded-full h-2 mb-4">
         <div
           className={`${barColor} h-2 rounded-full transition-all duration-700`}
-          style={{ width: `${score.score}%` }}
+          style={{ width: `${displayed}%` }}
         />
       </div>
 
