@@ -14,6 +14,7 @@ React/Next.js 코드를 붙여넣으면 **초보자 언어로 설명**해주는 
 - v0.1.0: 기본 분석 (imports, hooks, JSX, 컴포넌트 정보)
 - v0.2.0: 점수카드, 개선제안, 예제버튼, 히스토리, 복사버튼 추가
 - v0.3.0: 실시간 분석(디바운스), 점수 카운트업 애니메이션, 공유 링크
+- v0.4.0: 레벨 배지(초급/중급/고급), Before/After 코드 개선 예시, 컴포넌트 트리 시각화
 
 ## 배포 방법
 ```bash
@@ -32,11 +33,12 @@ bash deploy.sh "커밋 메시지"
 ## 주요 파일
 | 파일 | 역할 |
 |------|------|
-| `lib/analyzer.ts` | 핵심 분석 로직 (점수, 제안, imports/hooks/JSX 파싱) |
+| `lib/analyzer.ts` | 핵심 분석 로직 (점수, 제안, imports/hooks/JSX 파싱, 트리 빌더) |
 | `types/analysis.ts` | TypeScript 타입 정의 |
 | `app/_components/AnalyzerClient.tsx` | 메인 UI + 히스토리 관리 |
-| `components/analyzer/ScoreCard.tsx` | 코드 건강 점수 카드 |
-| `components/analyzer/SuggestionsCard.tsx` | 개선 제안 카드 |
+| `components/analyzer/ScoreCard.tsx` | 코드 건강 점수 카드 + 레벨 배지 |
+| `components/analyzer/SuggestionsCard.tsx` | 개선 제안 카드 + Before/After 토글 |
+| `components/analyzer/ComponentTree.tsx` | 컴포넌트 트리 시각화 |
 | `components/analyzer/ExampleButtons.tsx` | 예제 코드 버튼 |
 | `components/analyzer/ResultPanel.tsx` | 결과 패널 + 복사 버튼 |
 | `deploy.sh` | 자동 배포 스크립트 |
@@ -62,9 +64,6 @@ notes/
 - 배포 전 `npm run build`로 빌드 확인
 - 버전 올릴 때 `package.json` version 수동 업데이트
 
- ## "v0.4 기능 전부 다 해줘. 근데 먼저 작업량 보고
- ## 컨텍스트 몇 번에 나눠야 할지 계획 짜줘"
-
 ## 기능 로드맵 (물개박수 목록)
 
 ### ✅ 완료
@@ -76,10 +75,10 @@ notes/
 - [x] **점수 카운트업 애니메이션** - 0점→85점 올라가는 효과 → 시각적 wow
 - [x] **공유 링크** - URL에 코드 담아서 친구한테 전송 → "이거 봐봐!"
 
-### 🔜 v0.4 후보
-- [ ] **Before/After 코드 개선** - 개선 제안 클릭하면 고친 코드 바로 보여줌
-- [ ] **컴포넌트 트리 시각화** - 의존성 구조를 그림으로 표시
-- [ ] **레벨 배지** - "초급/중급/고급" 코드 레벨 판정
+### ✅ v0.4 완료
+- [x] **Before/After 코드 개선** - 개선 제안 클릭하면 고친 코드 바로 보여줌
+- [x] **컴포넌트 트리 시각화** - 의존성 구조를 그림으로 표시
+- [x] **레벨 배지** - "초급/중급/고급" 코드 레벨 판정
 
 ### 🔜 v0.5 후보
 - [ ] **PWA 설치 지원** - "앱으로 설치하기" 버튼 → 폰에 앱처럼 설치
